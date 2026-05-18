@@ -1,9 +1,9 @@
 import random
 import math
-
+#questo file è utile per generare i tempi
 
 def sample_exponential(lmbda):
-    u = random.random()
+    u = random.random() # generazione del numero casuale
     return -math.log(1 - u) / lmbda  #formula teorica che genera Tempi esponenziali degli eventi (T) a partire da u (numero generato casualmente) e lambda (failure rate)
 # Questo blocco viene eseguito solo
 # se il file viene lanciato direttamente.

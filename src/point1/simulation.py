@@ -11,14 +11,15 @@ from src.point1.system import simulate_system_once
 
 #Questo valore viene salvato nella variabile t e aggiunto alla lista results.
 #Alla fine, results contiene tutti i tempi di guasto del sistema per le N simulazioni.
-def run_simulation(n_simulations, lmbda):
+def run_simulation(n_simulations, lambda_1, lambda_2):
     """
-    Esegue N simulazioni Monte Carlo
+    Esegue N simulazioni Monte Carlo del sistema completo.
     """
-    results = [] #lista dove salverai i time failure, ovvero tutti i tempi di guasto del sistema.
-#in results fondamentalmente vado a mettere tutti i tempi calcolati dalla funzione "simulate_2oo3_once"definita in system.py. quella funzione genera 3 tempi e outputta il secondo (che è quello di failure). quindi in results vado a fare la lista con tutti i time failure
+
+    results = []
+
     for _ in range(n_simulations):
-        t = simulate_system_once(lmbda)
+        t = simulate_system_once(lambda_1, lambda_2)
         results.append(t)
 
     return np.array(results)
@@ -78,12 +79,13 @@ def analytical_reliability_2oo3(time_grid, lmbda):
 
 if __name__ == "__main__":
 
-    lmbda = 1e-3
-    mission_time = 1000
-    n_simulations = 1000
+    lambda_1 = 1e-3      # A, B, C
+    lambda_2 = 2e-3      # D, E
 
-    # Monte Carlo
-    failure_times = run_simulation(n_simulations, lmbda)
+    mission_time = 1000
+    n_simulations = 1_000
+
+    failure_times = run_simulation(n_simulations, lambda_1, lambda_2)
 
     # griglia temporale
     time_grid = np.linspace(0, mission_time, 200)
@@ -91,8 +93,8 @@ if __name__ == "__main__":
     # R(t)
     R, R_std = estimate_reliability_and_std(failure_times, time_grid)
 
-    # confronto teorico
-    R_exact = analytical_reliability_2oo3(time_grid, lmbda)
+    
+    
 
     # MTTF
     mttf, mttf_std = estimate_mttf_and_std(failure_times)
@@ -109,11 +111,11 @@ if __name__ == "__main__":
         label="uncertainty"
     )
 
-    plt.plot(time_grid, R_exact, "--", label="Analytical")
+    
 
     plt.xlabel("time")
     plt.ylabel("R(t)")
-    plt.title("2oo3 reliability")
+    plt.title("Full system reliability")
     plt.legend()
     plt.grid()
     plt.show()

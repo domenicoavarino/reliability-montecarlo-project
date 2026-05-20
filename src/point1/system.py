@@ -34,8 +34,8 @@ def simulate_system_once(lmbda):
     t_D = sample_exponential(lmbda)
     t_E = sample_exponential(lmbda)
 
-    # sistema in serie → fallisce al primo guasto
-    t_DE = min(t_D, t_E)
+    # sistema in parallelo → fallisce quando falliscono entrambi
+    t_DE = max(t_D, t_E)
 
     # =========================
     # SISTEMA TOTALE

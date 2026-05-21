@@ -8,7 +8,7 @@ from src.point1.system import simulate_system_once
 #Ad ogni iterazione viene chiamata la funzione simulate_2oo3_once (definita in system.py),
 #che genera tre tempi di guasto casuali (T_A, T_B, T_C), li ordina e restituisce
 #il secondo tempo (tempo di guasto del sistema 2oo3).
-
+np.random.seed(42)  #aggiunto seed(42) per riproducibilità
 #Questo valore viene salvato nella variabile t e aggiunto alla lista results.
 #Alla fine, results contiene tutti i tempi di guasto del sistema per le N simulazioni.
 def run_simulation(n_simulations, lambda_1, lambda_2):

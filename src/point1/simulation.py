@@ -61,18 +61,7 @@ def estimate_mttf_and_std(failure_times):
     return mttf, std
 
 
-def analytical_reliability_2oo3(time_grid, lmbda):
-    """
-    Soluzione teorica per confronto
-    """
-    R_comp = np.exp(-lmbda * time_grid)
 
-    R_sys = (
-        3 * R_comp**2 * (1 - R_comp)
-        + R_comp**3
-    )
-
-    return R_sys
 
 
 # ================= MAIN =================

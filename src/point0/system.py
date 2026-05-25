@@ -1,6 +1,6 @@
 #questo file si occupa della logica del sistema, risponde alla "domanda quando fallisce il sistema?"
 
-from src.common.sampling import sample_exponential #Qui stai importando la funzione che hai scritto tu (sampling.py).
+from src.common.sampling import sample_exponential #Qui stai importando la funzione scritta nel sampling.py.
 #Definisci una funzione :simulate → simulazione , 2oo3 → 2 out of 3, once → UNA simulazione
 #lmbda = tasso di guasto (failure rate) che tradotto “simula una volta un sistema con 3 componenti”
 def simulate_2oo3_once(lmbda):

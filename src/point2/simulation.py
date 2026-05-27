@@ -31,7 +31,7 @@ MU_1     = 1e-2    # repair rate  A, B, C [h⁻¹]
 MU_2     = 2e-2    # repair rate  D, E    [h⁻¹]
 
 MISSION_TIME  = 1000
-N_SIMULATIONS = 10000
+N_SIMULATIONS = 100000
 N_GRID        = 200
 
 
@@ -240,7 +240,7 @@ def analytical_reliability_norepair(time_grid, lambda_1, lambda_2):
 
 if __name__ == "__main__":
 
-    np.random.seed(42)
+    np.random.seed(42)   #aggiunto seed(42) per riproducibilità
 
     time_grid = np.linspace(0, MISSION_TIME, N_GRID)
 

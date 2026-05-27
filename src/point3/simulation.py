@@ -32,9 +32,8 @@ LAMBDA_C     = 2e-3    # shock arrival rate   [h⁻¹]
 P_SHOCK      = 0.1     # prob. guasto per componente UP a ogni shock
 
 MISSION_TIME  = 1000
-N_SIMULATIONS = 10_000
+N_SIMULATIONS = 100_000
 N_GRID        = 200
-SEED          = 42
 
 
 # ── Simulazione Monte Carlo ───────────────────────────────────────────────────
@@ -190,7 +189,7 @@ def estimate_n_repairs(n_repairs_arr):
 if __name__ == "__main__":
 
     # Seed fisso per riproducibilità, coerente con gli altri point del progetto
-    np.random.seed(SEED)
+    np.random.seed(42)
 
     time_grid = np.linspace(0, MISSION_TIME, N_GRID)
 

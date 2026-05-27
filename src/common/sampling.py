@@ -1,21 +1,14 @@
-import random
-import math
-#questo file è utile per generare i tempi
+import numpy as np
 
 def sample_exponential(lmbda):
-    u = random.random() # generazione del numero casuale
-    return -math.log(1 - u) / lmbda  #formula teorica che genera Tempi esponenziali degli eventi (T) a partire da u (numero generato casualmente) e lambda (failure rate)
-# Questo blocco viene eseguito solo
-# se il file viene lanciato direttamente.
-# Serve per testare la funzione
-# sample_exponential().
+    """
+    Genera tempi esponenziali degli eventi a partire da una U(0,1)
+    e dal parametro lambda (failure/repair rate).
+    """
+    u = np.random.random() 
+    return -np.log(1 - u) / lmbda
+
 if __name__ == "__main__":
-
-    # Genera e stampa 5 campioni casuali
-    # da una distribuzione esponenziale
-
-
+    np.random.seed(42)      #seed fissato per riproducibilità
     for _ in range(5):
-        print(sample_exponential(0.1))
-
-        #Questo codice genera tempi casuali esponenziali, ovvvero possibili failure times.
+        print(sample_exponential(0.1))  #genero 5 numeri casuali

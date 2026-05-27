@@ -8,7 +8,7 @@ from src.point0.system import simulate_2oo3_once
 #Ad ogni iterazione viene chiamata la funzione simulate_2oo3_once (definita in system.py),
 #che genera tre tempi di guasto casuali (T_A, T_B, T_C), li ordina e restituisce
 #il secondo tempo (tempo di guasto del sistema 2oo3).
-np.random.seed(42)  #aggiunto seed(42) per riproducibilità
+
 #Questo valore viene salvato nella variabile t e aggiunto alla lista results.
 #Alla fine, results contiene tutti i tempi di guasto del sistema per le N simulazioni.
 def run_simulation(n_simulations, lmbda):
@@ -77,10 +77,10 @@ def analytical_reliability_2oo3(time_grid, lmbda):
 # ================= MAIN =================
 
 if __name__ == "__main__":
-
+    np.random.seed(42)  #aggiunto seed(42) per riproducibilità
     lmbda = 1e-3
     mission_time = 1000
-    n_simulations = 1000
+    n_simulations = 100000
 
     # Monte Carlo
     failure_times = run_simulation(n_simulations, lmbda)
@@ -117,12 +117,27 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
     plt.show()
+    # ── Figure 2: R_std(t) ───────────────────────────────────────────────────
+    plt.figure(figsize=(8, 5))
+    plt.plot(time_grid, R_std, color="blue", linewidth=2)
+    plt.xlabel("Time (h)")
+    plt.ylabel("σ[R(t)]")
+    plt.title("Reliability Standard Deviation — Point 0")
+    plt.grid(True, linestyle=":", alpha=0.7)
+    plt.tight_layout()
+    plt.show()
+ # ================= PRINT =================
 
-    # ================= PRINT =================
-
+    # Calcolo di R_mission e della sua incertezza al tempo T_M
     R_mission = np.mean(failure_times > mission_time)
     R_mission_std = np.sqrt(R_mission * (1 - R_mission) / n_simulations)
 
-    print("\n===== RESULTS =====")
-    print(f"R({mission_time}) = {R_mission:.4f} ± {R_mission_std:.4e}")
-    print(f"MTTF = {mttf:.2f} ± {mttf_std:.2f}")
+    print("\n" + "=" * 52)
+    print("          RESULTS — POINT 0") 
+    print("=" * 52)
+    print(f"  Simulations        : {n_simulations:,}")
+    print(f"  Mission time       : {mission_time} h")
+    print("-" * 52)
+    print(f"  R(T_M)             = {R_mission:.4f}  ±  {R_mission_std:.4e}")
+    print(f"  MTTF               = {mttf:.2f}  ±  {mttf_std:.2f} h")
+    print("=" * 52)

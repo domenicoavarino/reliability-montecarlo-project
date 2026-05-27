@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 from src.point2.system import simulate_system_once, _system_is_up
 from src.common.sampling import sample_exponential
@@ -239,9 +240,7 @@ def analytical_reliability_norepair(time_grid, lambda_1, lambda_2):
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-
     np.random.seed(42)   #aggiunto seed(42) per riproducibilità
-
     time_grid = np.linspace(0, MISSION_TIME, N_GRID)
 
     print(f"Esecuzione {N_SIMULATIONS:,} simulazioni Monte Carlo...")

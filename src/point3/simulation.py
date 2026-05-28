@@ -3,77 +3,69 @@ import matplotlib.pyplot as plt
 
 from src.point3.system import simulate_system_once, system_state_on_grid
 
-# =============================================================================
-# POINT 3 — Monte Carlo con coda di repair e shock esterno
-#
-# Stime richieste (stesse del point 2):
-#   i.   R(t)     — time-dependent reliability
-#   ii.  MTTF     — Mean Time To First Failure
-#   iii. A(t)     — instantaneous availability
-#   iv.  Ā        — average availability su [0, T_M]
-#   v.   E[N_rep] — numero atteso di riparazioni completate in [0, T_M]
-#   vi.  std di tutte le stime sopra
-#
-# Plot prodotti (richiesti dal template di consegna):
-#   Figure 1 — R(t) con banda di incertezza ±1σ
-#   Figure 2 — R_std(t)
-#   Figure 3 — A(t) con banda di incertezza ±1σ
-#   Figure 4 — A_std(t)
-# =============================================================================
+"""
+MONTE CARLO SIMULATION MODULE - POINT 3
+---------------------------------------
+This script orchestrates the advanced Monte Carlo simulation for the fully 
+repairable system under realistic constraints. It models limited maintenance 
+resources (FIFO repair queues) and Common Cause Failures (external shocks).
 
-
-# ── Parametri ─────────────────────────────────────────────────────────────────
-
+It computes and plots the following reliability and maintainability metrics:
+  i.   R(t)       — Time-dependent Reliability
+  ii.  MTTF       — Mean Time To First Failure (with right-censoring)
+  iii. A(t)       — Instantaneous Availability
+  iv.  Ā          — Average Availability over [0, T_M]
+  v.   E[N_rep]   — Expected number of completed repairs in [0, T_M]
+  vi.  Statistical uncertainties (standard deviations) for all estimates.
+"""
+# ── System Parameters ──────────────────────────────────────────────────────
 LAMBDA_1     = 1e-3    # failure rate A, B, C [h⁻¹]
 LAMBDA_2     = 2e-3    # failure rate D, E    [h⁻¹]
 MU_1         = 1e-2    # repair rate  A, B, C [h⁻¹]  → MTTR_ABC = 100 h
 MU_2         = 2e-2    # repair rate  D, E    [h⁻¹]  → MTTR_DE  =  50 h
 LAMBDA_C     = 2e-3    # shock arrival rate   [h⁻¹]
-P_SHOCK      = 0.1     # prob. guasto per componente UP a ogni shock
+P_SHOCK      = 0.1     # Probability of component failure per shock
 
 MISSION_TIME  = 1000
 N_SIMULATIONS = 100_000
 N_GRID        = 200
 
 
-# ── Simulazione Monte Carlo ───────────────────────────────────────────────────
+# ── Full History Simulation ───────────────────────────────────────────────────
 
 def run_simulation(n_simulations, lambda_1, lambda_2, mu_1, mu_2,
                    lambda_c, p_shock, mission_time, time_grid):
     """
-    Esegue N simulazioni Monte Carlo del sistema point 3.
-
-    Per ogni run raccoglie:
-      - t_first_failure : tempo del primo failure di sistema
-      - time_up         : tempo totale UP in [0, T_M]
-      - n_repairs       : numero di riparazioni completate
-      - stato su time_grid (per A(t) istantanea)
+    Executes N independent event-driven Monte Carlo simulations for the Point 3 
+    system (incorporating FIFO repair queues and external shocks).
 
     Parameters
     ----------
     n_simulations : int
-    lambda_1, lambda_2 : float  — failure rates [h⁻¹]
-    mu_1, mu_2         : float  — repair rates  [h⁻¹]
-    lambda_c           : float  — shock rate    [h⁻¹]
-    p_shock            : float  — prob. guasto per componente UP per shock
-    mission_time       : float  — orizzonte     [h]
-    time_grid          : np.ndarray — griglia temporale
+        Number of Monte Carlo histories.
+    lambda_1, lambda_2, mu_1, mu_2, lambda_c, p_shock, mission_time : float
+        System and physical transition parameters.
+    time_grid : np.ndarray
+        Array of discrete times to project and sample the system state.
 
     Returns
     -------
-    failure_times : np.ndarray (N,)
-    time_ups      : np.ndarray (N,)
-    n_repairs_arr : np.ndarray (N,) int
-    states_matrix : np.ndarray (N, len(time_grid)) int8
-                    1 = sistema UP, 0 = sistema DOWN
+    tuple containing:
+        failure_times : np.ndarray (N,) — Absolute time of FIRST system failure.
+        time_ups      : np.ndarray (N,) — Cumulative UP time per run.
+        n_repairs_arr : np.ndarray (N,) — Total completed repairs per run.
+        states_matrix : np.ndarray (N, len(time_grid)) — Binary system state 
+                        (1=UP, 0=DOWN) sampled at each point in time_grid.
     """
     n_grid        = len(time_grid)
+    # Pre-allocate memory for computational efficiency
     failure_times = np.empty(n_simulations)
     time_ups      = np.empty(n_simulations)
     n_repairs_arr = np.empty(n_simulations, dtype=int)
     states_matrix = np.zeros((n_simulations, n_grid), dtype=np.int8)
 
     for i in range(n_simulations):
+        # Run the advanced Discrete Event Simulation for a single history
         res = simulate_system_once(
             lambda_1, lambda_2, mu_1, mu_2,
             lambda_c, p_shock, mission_time
@@ -81,31 +73,17 @@ def run_simulation(n_simulations, lambda_1, lambda_2, mu_1, mu_2,
         failure_times[i] = res["t_first_failure"]
         time_ups[i]      = res["time_up"]
         n_repairs_arr[i] = res["n_repairs"]
-        # Ricostruisce lo stato su time_grid dalla lista sparsa di transizioni
+        # Reconstruct the instantaneous state array from the sparse transitions list
         states_matrix[i] = system_state_on_grid(res["state_at"], time_grid)
 
     return failure_times, time_ups, n_repairs_arr, states_matrix
 
 
-# ── Stime statistiche ─────────────────────────────────────────────────────────
+# ── Statistical Estimation Functions ─────────────────────────────────────────────────────────
 
 def estimate_reliability(failure_times, time_grid):
     """
-    R(t) = P(t_first_failure > t), stimata come media campionaria.
-
-    R_std(t) = deviazione standard della stima MC:
-               sqrt(R(t) * (1-R(t)) / N)
-               derivata dalla varianza di una variabile di Bernoulli.
-
-    Parameters
-    ----------
-    failure_times : np.ndarray (N,)
-    time_grid     : np.ndarray (n_grid,)
-
-    Returns
-    -------
-    R     : np.ndarray (n_grid,)
-    R_std : np.ndarray (n_grid,)
+    Estimates R(t) = P(T_first_failure > t) and its standard deviation.
     """
     n     = len(failure_times)
     R     = np.array([np.mean(failure_times > t) for t in time_grid])
@@ -115,17 +93,9 @@ def estimate_reliability(failure_times, time_grid):
 
 def estimate_availability_pointwise(states_matrix):
     """
-    A(t) = media su tutte le run dello stato binario in ogni punto della griglia.
-    A_std(t) = deviazione standard della stima MC (formula di Bernoulli).
-
-    Parameters
-    ----------
-    states_matrix : np.ndarray (N, n_grid) int8
-
-    Returns
-    -------
-    A_t     : np.ndarray (n_grid,)
-    A_t_std : np.ndarray (n_grid,)
+    Estimates Instantaneous Availability A(t).
+    Computed as the ensemble average (across all runs) of the binary system 
+    state (1=UP, 0=DOWN) at each specific grid point.
     """
     n       = states_matrix.shape[0]
     A_t     = np.mean(states_matrix, axis=0)
@@ -135,14 +105,8 @@ def estimate_availability_pointwise(states_matrix):
 
 def estimate_average_availability(time_ups, mission_time, n_simulations):
     """
-    Ā = E[time_up] / mission_time — average availability su [0, T_M].
-
-    La std della stima è la std della media campionaria di time_up / T_M.
-
-    Returns
-    -------
-    A_avg     : float
-    A_avg_std : float
+    Estimates the Average Availability over the mission time.
+    Ā = E[Total Time UP] / Mission Time.
     """
     A_avg     = np.mean(time_ups) / mission_time
     A_avg_std = (np.std(time_ups, ddof=1) / np.sqrt(n_simulations)) / mission_time
@@ -151,18 +115,17 @@ def estimate_average_availability(time_ups, mission_time, n_simulations):
 
 def estimate_mttf(failure_times, mission_time):
     """
-    MTTF = media dei tempi di primo failure del sistema.
+    Estimates the Mean Time To First Failure (MTTF).
 
-    Le run in cui il sistema non ha mai fallito entro T_M vengono censurate
-    a T_M: questo produce una stima per difetto (lower bound) del MTTF reale.
-    La censura è necessaria perché la simulazione termina a mission_time.
-
-    Returns
-    -------
-    mttf     : float
-    mttf_std : float
+    RIGHT-CENSORING LOGIC:
+    Since the simulation is strictly truncated at the mission time T_M, runs 
+    where the system never failed record a failure time of infinity. Excluding 
+    these "survival" runs would create a severe selection bias. We apply 
+    "right-censoring" by capping these infinite values at T_M. This provides a 
+    mathematically rigorous and conservative lower-bound estimate of the MTTF.
     """
     n           = len(failure_times)
+    # Apply Right-Censoring: replace 'inf' with 'mission_time'
     ft_censored = np.where(np.isinf(failure_times), mission_time, failure_times)
     mttf        = np.mean(ft_censored)
     mttf_std    = np.std(ft_censored, ddof=1) / np.sqrt(n)
@@ -171,12 +134,7 @@ def estimate_mttf(failure_times, mission_time):
 
 def estimate_n_repairs(n_repairs_arr):
     """
-    E[N_rep] = numero medio di riparazioni completate per run.
-
-    Returns
-    -------
-    mean_rep : float
-    std_rep  : float
+    Estimates the expected number of completed repairs per run (E[N_rep]).
     """
     n        = len(n_repairs_arr)
     mean_rep = np.mean(n_repairs_arr)
@@ -188,17 +146,17 @@ def estimate_n_repairs(n_repairs_arr):
 
 if __name__ == "__main__":
 
-    # Seed fisso per riproducibilità, coerente con gli altri point del progetto
+    # Fix the seed for reproducibility, consistent across all project points
     np.random.seed(42)
 
     time_grid = np.linspace(0, MISSION_TIME, N_GRID)
 
-    print(f"Esecuzione {N_SIMULATIONS:,} simulazioni Monte Carlo (Point 3)...")
+    print(f"Executing {N_SIMULATIONS:,} Monte Carlo simulations (Point 3)...")
     failure_times, time_ups, n_repairs_arr, states_matrix = run_simulation(
         N_SIMULATIONS, LAMBDA_1, LAMBDA_2, MU_1, MU_2,
         LAMBDA_C, P_SHOCK, MISSION_TIME, time_grid
     )
-    print("Simulazioni completate.")
+    print("Simulations completed.")
 
     # ── i. R(t) ──────────────────────────────────────────────────────────────
     R, R_std = estimate_reliability(failure_times, time_grid)
@@ -215,7 +173,7 @@ if __name__ == "__main__":
     # ── v. E[N_rep] ───────────────────────────────────────────────────────────
     mean_rep, std_rep = estimate_n_repairs(n_repairs_arr)
 
-    # ── Figure 1: R(t) con banda di incertezza ────────────────────────────────
+    # ── Figure 1: R(t)  ────────────────────────────────
     plt.figure(figsize=(8, 5))
     plt.plot(time_grid, R, color="tab:blue", label="R(t) Monte Carlo")
     plt.fill_between(
@@ -286,3 +244,26 @@ if __name__ == "__main__":
     print(f"  Ā  [0, T_M]        = {A_avg:.4f}  ±  {A_avg_std:.4e}")
     print(f"  E[N_repairs]       = {mean_rep:.2f}  ±  {std_rep:.4f}")
     print("=" * 52)
+
+    # =========================================================================
+    # PHYSICAL INTERPRETATION OF THE RESULTS (POINT 3 vs POINT 2)
+    # =========================================================================
+    # 1. Impact of Limited Repair Resources (Queuing/Bottlenecks):
+    # In Point 2, each component had an independent repair team. In Point 3, 
+    # we introduced a bottleneck: only 1 team per subsystem. When multiple 
+    # failures occur, components are forced into a FIFO waiting queue. This 
+    # significantly increases the effective downtime (MTTR) of the components, 
+    # drastically reducing the overall Instantaneous and Average Availability A(t).
+    #
+    # 2. Impact of Common Cause Failures (External Shocks):
+    # The external shocks introduce dependent failures, defeating the primary 
+    # purpose of redundancy (Subsystems 2oo3 and Parallel). A single shock can 
+    # simultaneously disable multiple operational components. 
+    # As a direct consequence, the Reliability R(t) curve and the MTTF exhibit 
+    # a sharp degradation compared to Point 2.
+    # 
+    # CONCLUSION: 
+    # Due to maintenance bottlenecks and Common Cause Failures, the system in 
+    # Point 3 represents a much more realistic, conservative, and severely 
+    # degraded operational scenario compared to the idealized model in Point 2.
+    # =========================================================================

@@ -1,22 +1,32 @@
 import numpy as np
-import random
 import matplotlib.pyplot as plt
-#su questo file si farà MonteCarlo + gli output
-#ripete tante simulazioni → raccoglie risultati → calcola statistiche → fa grafici
-
 from src.point0.system import simulate_2oo3_once
-#Definisco la funzione run_simulation che esegue N simulazioni Monte Carlo.
-#Ad ogni iterazione viene chiamata la funzione simulate_2oo3_once (definita in system.py),
-#che genera tre tempi di guasto casuali (T_A, T_B, T_C), li ordina e restituisce
-#il secondo tempo (tempo di guasto del sistema 2oo3).
-#Questo valore viene salvato nella variabile t e aggiunto alla lista results.
-#Alla fine, results contiene tutti i tempi di guasto del sistema per le N simulazioni.
+"""
+MONTE CARLO SIMULATION MODULE - POINT 0
+---------------------------------------
+This script orchestrates the Monte Carlo simulation for the 2-out-of-3 (2oo3)
+subsystem without repair. It repeatedly simulates the system history to collect 
+failure times, computes statistical estimates (Reliability and MTTF) along with 
+their respective uncertainties, and generates the required visual plots.
+"""
 def run_simulation(n_simulations, lmbda):
     """
-    Esegue N simulazioni Monte Carlo
+    Executes N independent Monte Carlo simulations for the 2oo3 subsystem.
+
+    Parameters
+    ----------
+    n_simulations : int
+        The total number of system histories to simulate.
+    lmbda : float
+        The constant failure rate (λ) of the components [h^-1].
+
+    Returns
+    -------
+    np.ndarray
+        A 1D array containing the system failure time for each simulation run.
     """
-    results = [] #lista dove salverai i time failure, ovvero tutti i tempi di guasto del sistema.
-#in results fondamentalmente vado a mettere tutti i tempi calcolati dalla funzione "simulate_2oo3_once"definita in system.py. quella funzione genera 3 tempi e outputta il secondo (che è quello di failure). quindi in results vado a fare la lista con tutti i time failure
+    results = [] # List to store the absolute failure times of the system across all runs
+    # Loop to generate N independent system failure times
     for _ in range(n_simulations):
         t = simulate_2oo3_once(lmbda)
         results.append(t)
@@ -26,35 +36,61 @@ def run_simulation(n_simulations, lmbda):
 
 def estimate_reliability_and_std(failure_times, time_grid): 
     """
-    Stima R(t) e la deviazione standard
+    Estimates the time-dependent reliability R(t) and its standard deviation.
+
+    R(t) is estimated as the fraction of simulations where the system survives 
+    beyond time t. Since the survival of the system at time t is a Bernoulli 
+    trial (1 = survived, 0 = failed), the uncertainty is computed using the 
+    standard deviation of a binomial proportion.
+
+    Parameters
+    ----------
+    failure_times : np.ndarray
+        Array of simulated system failure times.
+    time_grid : np.ndarray
+        Array of time points at which to evaluate R(t).
+
+    Returns
+    -------
+    tuple of (np.ndarray, np.ndarray)
+        R     : Estimated reliability values over the time grid.
+        R_std : Statistical uncertainty (standard deviation) of R(t).
     """
     n = len(failure_times)
-
+    # Calculate R(t) for each time step: 
+    # (failure_times > t) returns a boolean array. np.mean() treats True as 1 
+    # and False as 0, effectively calculating the survival probability.
     R = np.array([
         np.mean(failure_times > t) # per ogni failure times > di t, restituisce true o false
         for t in time_grid
     ])
-#time grid è una lista in cui vuoi vedere quanto il sistema è ancora vivo
-    R_std = np.sqrt(R * (1 - R) / n) #è l’incertezza del Monte Carlo, più simulazioni → meno errore
+# Standard deviation of the binomial estimator: sqrt(p * (1-p) / N)
+    R_std = np.sqrt(R * (1 - R) / n) 
 
     return R, R_std
-#Esempio: [1200, 800, 500] > 1000 → [True, False, False]  
+#Exemple: [1200, 800, 500] > 1000 → [True, False, False]  
 # np.mean(...)
 
 # True = 1
 # False = 0
 
-#Quindi:
+#so:
 
 #(1 + 0 + 0) / 3 = 0.33
-#R(t) = probabilità che il sistema sopravviva oltre t
 def estimate_mttf_and_std(failure_times):
     """
-    Stima MTTF e deviazione standard
+    Estimates the Mean Time To Failure (MTTF) and its standard error.
+
+    Returns
+    -------
+    tuple of (float, float)
+        mttf : The sample mean of the simulated failure times.
+        std  : The standard error of the mean (sample standard deviation / sqrt(N)).
     """
     n = len(failure_times)
 
     mttf = np.mean(failure_times)
+    # Use ddof=1 to calculate the unbiased sample standard deviation
     std = np.std(failure_times, ddof=1) / np.sqrt(n)
 
     return mttf, std
@@ -62,10 +98,14 @@ def estimate_mttf_and_std(failure_times):
 
 def analytical_reliability_2oo3(time_grid, lmbda):
     """
-    Soluzione teorica per confronto
+    Calculates the exact analytical solution for the 2oo3 subsystem reliability.
+    Used to validate the Monte Carlo estimates.
+    
+    R_sys(t) = 3 * R_comp(t)^2 * (1 - R_comp(t)) + R_comp(t)^3
     """
+    # Reliability of a single exponential component
     R_comp = np.exp(-lmbda * time_grid)
-
+    # Reliability of the 2-out-of-3 architecture
     R_sys = (
         3 * R_comp**2 * (1 - R_comp)
         + R_comp**3
@@ -77,7 +117,8 @@ def analytical_reliability_2oo3(time_grid, lmbda):
 # ================= MAIN =================
 
 if __name__ == "__main__":
-    np.random.seed(42)  #aggiunto seed(42) per riproducibilità
+    np.random.seed(42)  # Fix the seed to ensure strict reproducibility of the results
+    # System parameters
     lmbda = 1e-3
     mission_time = 1000
     n_simulations = 100000
@@ -85,22 +126,25 @@ if __name__ == "__main__":
     # Monte Carlo
     failure_times = run_simulation(n_simulations, lmbda)
 
-    # griglia temporale
+    # Define the time horizon for the analysis
     time_grid = np.linspace(0, mission_time, 200)
 
-    # R(t)
+    # 2. Compute statistical estimates (Monte Carlo)
     R, R_std = estimate_reliability_and_std(failure_times, time_grid)
 
-    # confronto teorico
+    # 3. Compute analytical solution for model validation
     R_exact = analytical_reliability_2oo3(time_grid, lmbda)
 
     # MTTF
     mttf, mttf_std = estimate_mttf_and_std(failure_times)
 
     # ================= PLOT =================
-#in questo grafico ho stimato R(t) con Monte Carlo e verificato che coincide con la soluzione analitica, validando il modello.
+# ── Figure 1: Reliability R(t) ───────────────────────────────────────────
+    # This plot overlays the Monte Carlo estimate with the analytical solution
+    # to visually validate the correctness of the stochastic model.
+    plt.figure(figsize=(8, 5))
     plt.plot(time_grid, R, label="Monte Carlo")
-
+    # Plot the +/- 1 standard deviation uncertainty band
     plt.fill_between(
         time_grid,
         R - R_std,
@@ -128,7 +172,7 @@ if __name__ == "__main__":
     plt.show()
  # ================= PRINT =================
 
-    # Calcolo di R_mission e della sua incertezza al tempo T_M
+    # Calculate R(t) and its standard deviation exactly at the mission time (T_M)
     R_mission = np.mean(failure_times > mission_time)
     R_mission_std = np.sqrt(R_mission * (1 - R_mission) / n_simulations)
 
